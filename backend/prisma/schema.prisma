@@ -1,0 +1,274 @@
+// prisma/schema.prisma
+// Residex - Plataforma de gestión inteligente para unidades residenciales
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// Users & Roles
+// ─────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  RESIDENT
+  GUARD
+  MANAGER
+}
+
+model User {
+  id        String   @id @default(uuid())
+  cognitoId String   @unique
+  email     String   @unique
+  name      String
+  role      Role     @default(RESIDENT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  residences ResidenceUser[]
+  visitors   Visitor[]
+  packages   Package[]
+  payments   Payment[]
+  pqrs       PQRS[]
+  reservations Reservation[]
+
+  @@map("users")
+}
+
+model Residence {
+  id        String   @id @default(uuid())
+  name      String
+  address   String
+  city      String
+  country   String  @default("CO")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users        ResidenceUser[]
+  visitors     Visitor[]
+  packages     Package[]
+  payments     Payment[]
+  pqrs         PQRS[]
+  announcements Announcement[]
+  commonAreas  CommonArea[]
+
+  @@map("residences")
+}
+
+model ResidenceUser {
+  id          String   @id @default(uuid())
+  userId      String
+  residenceId String
+  unitNumber  String
+  createdAt   DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id])
+  residence Residence @relation(fields: [residenceId], references: [id])
+
+  @@unique([userId, residenceId])
+  @@map("residence_users")
+}
+
+// ─────────────────────────────────────────────
+// Visitors
+// ─────────────────────────────────────────────
+
+enum VisitorStatus {
+  PENDING
+  APPROVED
+  DENIED
+  CHECKED_IN
+  CHECKED_OUT
+}
+
+model Visitor {
+  id           String        @id @default(uuid())
+  name         String
+  documentId   String
+  phone        String?
+  status       VisitorStatus @default(PENDING)
+  scheduledAt  DateTime?
+  checkedInAt  DateTime?
+  checkedOutAt DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  hostId      String
+  residenceId String
+  host        User      @relation(fields: [hostId], references: [id])
+  residence   Residence @relation(fields: [residenceId], references: [id])
+
+  @@map("visitors")
+}
+
+// ─────────────────────────────────────────────
+// Packages
+// ─────────────────────────────────────────────
+
+enum PackageStatus {
+  RECEIVED
+  NOTIFIED
+  DELIVERED
+  RETURNED
+}
+
+model Package {
+  id           String        @id @default(uuid())
+  trackingCode String?
+  description  String?
+  carrier      String?
+  status       PackageStatus @default(RECEIVED)
+  receivedAt   DateTime      @default(now())
+  deliveredAt  DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  recipientId String
+  residenceId String
+  recipient   User      @relation(fields: [recipientId], references: [id])
+  residence   Residence @relation(fields: [residenceId], references: [id])
+
+  @@map("packages")
+}
+
+// ─────────────────────────────────────────────
+// Payments
+// ─────────────────────────────────────────────
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentType {
+  ADMINISTRATION
+  PENALTY
+  RESERVE
+  OTHER
+}
+
+model Payment {
+  id          String        @id @default(uuid())
+  amount      Decimal       @db.Decimal(12, 2)
+  type        PaymentType   @default(ADMINISTRATION)
+  status      PaymentStatus @default(PENDING)
+  dueDate     DateTime
+  paidAt      DateTime?
+  description String?
+  reference   String?       @unique
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  userId      String
+  residenceId String
+  user        User      @relation(fields: [userId], references: [id])
+  residence   Residence @relation(fields: [residenceId], references: [id])
+
+  @@map("payments")
+}
+
+// ─────────────────────────────────────────────
+// PQRS (Petitions, Complaints, Claims, Suggestions)
+// ─────────────────────────────────────────────
+
+enum PQRSCategory {
+  PETITION
+  COMPLAINT
+  CLAIM
+  SUGGESTION
+}
+
+enum PQRSStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+model PQRS {
+  id          String       @id @default(uuid())
+  title       String
+  description String
+  category    PQRSCategory
+  status      PQRSStatus   @default(OPEN)
+  resolvedAt  DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  authorId    String
+  residenceId String
+  author      User      @relation(fields: [authorId], references: [id])
+  residence   Residence @relation(fields: [residenceId], references: [id])
+
+  @@map("pqrs")
+}
+
+// ─────────────────────────────────────────────
+// Announcements
+// ─────────────────────────────────────────────
+
+model Announcement {
+  id          String   @id @default(uuid())
+  title       String
+  content     String
+  publishedAt DateTime @default(now())
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  residenceId String
+  residence   Residence @relation(fields: [residenceId], references: [id])
+
+  @@map("announcements")
+}
+
+// ─────────────────────────────────────────────
+// Common Areas & Reservations
+// ─────────────────────────────────────────────
+
+model CommonArea {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  capacity    Int?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  residenceId  String
+  residence    Residence     @relation(fields: [residenceId], references: [id])
+  reservations Reservation[]
+
+  @@map("common_areas")
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model Reservation {
+  id          String            @id @default(uuid())
+  startTime   DateTime
+  endTime     DateTime
+  status      ReservationStatus @default(PENDING)
+  notes       String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  userId       String
+  commonAreaId String
+  user         User       @relation(fields: [userId], references: [id])
+  commonArea   CommonArea @relation(fields: [commonAreaId], references: [id])
+
+  @@map("reservations")
+}
