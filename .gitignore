@@ -1,0 +1,19 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Env
+.env
+.env.local
+.env.production
+
+# Next.js
+frontend/.next/
+frontend/out/
+
+# NestJS build
+backend/dist/
+
+# OS
+.DS_Store
+Thumbs.db
